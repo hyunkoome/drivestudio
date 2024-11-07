@@ -44,6 +44,8 @@ dataset_classes_in_sematic = {
     'human': [11, 12, 17, 18], # 'person', 'rider', 'motorcycle', 'bicycle'
 }
 
+
+
 if __name__ == "__main__":
     import os
     import imageio
