@@ -82,6 +82,19 @@ python datasets/preprocess.py \
     --workers 8 \
     --process_keys images lidar calib pose dynamic_masks objects
 ```
+
+In my cases, I have one RTX4090 GPU, so, have to set workers 1 as follows:
+```shell
+python datasets/preprocess.py \
+    --data_root data/waymo/raw/ \
+    --target_dir data/waymo/processed \
+    --dataset waymo \
+    --split training \
+    --split_file data/waymo_example_scenes.txt \
+    --workers 1 \
+    --process_keys images lidar calib pose dynamic_masks objects
+```
+
 The extracted data will be stored in the `data/waymo/processed` directory.
 
 ## 4. Extract Masks
