@@ -135,6 +135,14 @@ To utilize the SMPL-Gaussian to model pedestrians, please first download the SMP
 
 1. Download SMPL v1.1 (`SMPL_python_v.1.1.0.zip`) from the [SMPL official website](https://smpl.is.tue.mpg.de/download.php)
 2. Move `SMPL_python_v.1.1.0/smpl/models/basicmodel_neutral_lbs_10_207_0_v1.1.0.pkl` to `PROJECT_ROOT/smpl_models/SMPL_NEUTRAL.pkl`
+3. (Optional) just link like this: 
+```shell
+mkdir smpl_models
+cd smpl_models
+ln -s "/home/hyunkoo/Dataset/NAS/nfsRoot/Datasets/Human_Body_Pose/SMPL-Gaussian_SMPL v1.1/models/basicmodel_neutral_lbs_10_207_0_v1.1.0.pkl" SMPL_NEUTRAL.pkl
+ls -l SMPL_NEUTRAL.pkl # check
+```
+
 
 SMPL-Nodes (SMPL-Gaussian Representation) requires Human Body Pose Sequences of pedestrians. We've developed a human body pose processing pipeline for in-the-wild driving data to generate this information. There are two ways to obtain these data:
 
@@ -146,7 +154,7 @@ We have uploaded preprocessed human pose data for a subset of Waymo scenes to [G
 # https://drive.google.com/file/d/1QrtMrPAQhfSABpfgQWJZA2o_DDamL_7_/view?usp=drive_link
 # filename: waymo_preprocess_humanpose.zip
 cd data
-gdown 1QrtMrPAQhfSABpfgQWJZA2o_DDamL_7_ 
+gdown 1QrtMrPAQhfSABpfgQWJZA2o_DDamL_7_
 
 unzip waymo_preprocess_humanpose.zip
 rm waymo_preprocess_humanpose.zip
