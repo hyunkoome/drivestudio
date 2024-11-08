@@ -14,6 +14,14 @@ Once you've registered and installed the gcloud SDK, create a directory to house
 mkdir -p ./data/waymo/raw   
 mkdir -p ./data/waymo/processed 
 ```
+(Optional) In my case
+```shell
+cd data
+mkdir waymo
+cd waymo
+ln -s /home/hyunkoo/Dataset/NAS/nfsRoot/Datasets/Waymo_Datasets/waymo_open_dataset_scene_flow/train raw
+ln -s /home/hyunkoo/Dataset/NAS/nfsRoot/Datasets/Waymo_Datasets/waymo_open_dataset_scene_flow/drivestudio_processed processed
+```
 
 ## 2. Download the raw data
 For the Waymo Open Dataset, we first organize the scene names alphabetically and store them in `data/waymo_train_list.txt`. The scene index is then determined by the line number minus one.
