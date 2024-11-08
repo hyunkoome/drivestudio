@@ -130,6 +130,13 @@ We support most popular public driving datasets. Detailed instructions for downl
 
 ## 🚀 Running
 ### Training
+
+- (Optional)
+```shell
+ln -s /home/hyunkoo/DATA/NAS/nfsRoot/Train_Results/drivestudio/output output
+ln -s /home/hyunkoo/DATA/NAS/nfsRoot/Train_Results/drivestudio/output/wandb wandb
+```
+
 ```shell
 export PYTHONPATH=$(pwd)
 start_timestep=0 # start frame index for training

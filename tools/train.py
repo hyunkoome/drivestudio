@@ -61,6 +61,9 @@ def setup(args):
     # setup wandb
     if args.enable_wandb:
         # sometimes wandb fails to init in cloud machines, so we give it several (many) tries
+        print('args.project', args.project)
+        print('args.entity', args.entity)
+
         while (
             wandb.init(
                 project=args.project,

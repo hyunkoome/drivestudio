@@ -187,3 +187,4 @@ cython_debug/
 #.idea/
 local_scripts
 .idea
+local_cashe
