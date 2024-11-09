@@ -1,10 +1,9 @@
 #!/bin/bash
 
 
-export PYTHONPATH=/home/hyunkoo/DATA/ssd8tb/Journal/drivestudio:$PYTHONPATH
+export PYTHONPATH=/home/hyunkoo/DATA/HDD8TB/Add_Objects_DrivingScense/drivestudio:$PYTHONPATH
 
 export $(cat .env | xargs) && python tools/train.py \
-    --enable_wandb --entity hyunkookim-me \
     --config_file configs/omnire.yaml \
     --output_root output \
     --project drivestudio \
@@ -13,3 +12,5 @@ export $(cat .env | xargs) && python tools/train.py \
     data.scene_idx=23 \
     data.start_timestep=0 \
     data.end_timestep=-1
+
+#    --enable_wandb --entity hyunkookim-me \

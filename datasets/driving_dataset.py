@@ -458,7 +458,13 @@ class DrivingDataset(SceneDataset):
                     # valid_flows = lidar_dict["lidar_flows"][mask]
                     collected_lidar_pts.append(valid_pts)
                     collected_lidar_colors.append(valid_colors)
-                
+
+                # Wrap torch.cat with try-except to catch errors
+                try:
+                    combined_pts = torch.cat(collected_lidar_pts, dim=0)
+                except RuntimeError as e:
+                    print(f"Error during torch.cat: {e}")
+
                 instance_dict[ins_id] = {
                     "node_type": "SMPLNodes",
                     "smpl_quats": smpl_quats,           # [frame_num, 24, 4]
