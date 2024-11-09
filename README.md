@@ -152,6 +152,10 @@ python tools/train.py \
     data.start_timestep=$start_timestep \
     data.end_timestep=$end_timestep
 ```
+- in my case:
+```shell
+bash script/train_waymo_3cm.sh
+```
 
 - To run other methods, change `--config_file`. See `configs/` for more options.
 - Specify dataset and number of cameras by setting `dataset`. Examples: `waymo/1cams`, `waymo/5cams`, `pandaset/6cams`, `argoverse/7cams`, etc.
