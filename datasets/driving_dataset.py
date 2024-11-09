@@ -20,9 +20,9 @@ from utils.misc import export_points_to_ply, import_str
 
 logger = logging.getLogger()
 
-DEBUG_PCD=False
+DEBUG_PCD = False
 if DEBUG_PCD:
-    DEBUG_OUTPUT_DIR="debug"
+    DEBUG_OUTPUT_DIR = "debug"
     os.makedirs(DEBUG_OUTPUT_DIR, exist_ok=True)
 
 NAME_TO_NODE = {
@@ -31,13 +31,14 @@ NAME_TO_NODE = {
     "DeformableNodes": ModelType.DeformableNodes
 }
 
+
 class DrivingDataset(SceneDataset):
     def __init__(
-        self,
-        data_cfg: OmegaConf,
+            self,
+            data_cfg: OmegaConf,
     ) -> None:
         super().__init__(data_cfg)
-        
+
         # AVAILABLE DATASETS:
         #   Waymo:    5 Cameras
         #   KITTI:    2 Cameras
@@ -46,21 +47,22 @@ class DrivingDataset(SceneDataset):
         #   PandaSet: 6 Cameras
         #   NuPlan:   8 Cameras
         self.type = self.data_cfg.dataset
-        try: # For Waymo, NuScenes, ArgoVerse, PandaSet
+        try:  # For Waymo, NuScenes, ArgoVerse, PandaSet
             self.data_path = os.path.join(
                 self.data_cfg.data_root,
                 f"{int(self.scene_idx):03d}"
             )
-        except: # For KITTI, NuPlan
+        except:  # For KITTI, NuPlan
             self.data_path = os.path.join(self.data_cfg.data_root, self.scene_idx)
-            
+
         assert os.path.exists(self.data_path), f"{self.data_path} does not exist"
         if os.path.exists(os.path.join(self.data_path, "ego_pose")):
             total_frames = len(os.listdir(os.path.join(self.data_path, "ego_pose")))
         elif os.path.exists(os.path.join(self.data_path, "lidar_pose")):
             total_frames = len(os.listdir(os.path.join(self.data_path, "lidar_pose")))
         else:
-            raise ValueError("Unable to determine the total number of frames. Neither 'ego_pose' nor 'lidar_pose' directories found.")
+            raise ValueError(
+                "Unable to determine the total number of frames. Neither 'ego_pose' nor 'lidar_pose' directories found.")
 
         # ---- find the number of synchronized frames ---- #
         if self.data_cfg.end_timestep == -1:
@@ -70,7 +72,7 @@ class DrivingDataset(SceneDataset):
         # to make sure the last timestep is included
         self.end_timestep = end_timestep + 1
         self.start_timestep = self.data_cfg.start_timestep
-        
+
         # ---- create layout for visualization ---- #
         self.layout = get_layout(self.type)
 
@@ -95,19 +97,19 @@ class DrivingDataset(SceneDataset):
         # ---- create split wrappers ---- #
         image_sets = self.build_split_wrapper()
         self.train_image_set, self.test_image_set, self.full_image_set = image_sets
-        
+
         # debug use
         # self.seg_dynamic_instances_in_lidar_frame(-1, frame_idx=0)
         # self.get_init_objects()
-        
+
     @property
     def instance_num(self):
         return len(self.pixel_source.instances_pose[0])
-    
+
     @property
     def frame_num(self):
         return self.pixel_source.num_frames
-    
+
     def get_instance_infos(self):
         return (
             self.pixel_source.instances_pose.clone(),
@@ -154,7 +156,7 @@ class DrivingDataset(SceneDataset):
             device=self.device,
         )
         pixel_source.to(self.device)
-        
+
         # ---- create lidar source ---- #
         lidar_source = None
         if self.data_cfg.lidar_source.load_lidar:
@@ -166,48 +168,50 @@ class DrivingDataset(SceneDataset):
                 device=self.device,
             )
             lidar_source.to(self.device)
-            assert (pixel_source._unique_normalized_timestamps - lidar_source._unique_normalized_timestamps).abs().sum().item() == 0., \
+            assert (
+                           pixel_source._unique_normalized_timestamps - lidar_source._unique_normalized_timestamps).abs().sum().item() == 0., \
                 "The timestamps of the pixel source and the lidar source are not synchronized"
         return pixel_source, lidar_source
-    
+
     def get_lidar_samples(
-        self, 
-        num_samples: float = None,
-        downsample_factor: float = None,
-        return_color=False,
-        return_normalized_time=False,
-        device: torch.device = torch.device("cpu")
-        ) -> Tensor:
+            self,
+            num_samples: float = None,
+            downsample_factor: float = None,
+            return_color=False,
+            return_normalized_time=False,
+            device: torch.device = torch.device("cpu")
+    ) -> Tensor:
         assert self.lidar_source is not None, "Must have lidar source if you want to get init pcd"
         assert (num_samples is None) != (downsample_factor is None), \
             "Must provide either num_samples or downsample_factor, but not both"
         if downsample_factor is not None:
             num_samples = int(len(self.lidar_source.pts_xyz) / downsample_factor)
         if num_samples > len(self.lidar_source.pts_xyz):
-            logger.warning(f"num_samples {num_samples} is larger than the number of points {len(self.lidar_source.pts_xyz)}")
+            logger.warning(
+                f"num_samples {num_samples} is larger than the number of points {len(self.lidar_source.pts_xyz)}")
             num_samples = len(self.lidar_source.pts_xyz)
-        
+
         # randomly sample points
         sampled_idx = torch.randperm(len(self.lidar_source.pts_xyz))[:num_samples]
         sampled_pts = self.lidar_source.pts_xyz[sampled_idx].to(device)
-        
+
         # get color if needed
         sampled_color = None
         if return_color:
             sampled_color = self.lidar_source.colors[sampled_idx].to(device)
-        
+
         sampled_time = None
         if return_normalized_time:
             sampled_time = self.lidar_source._normalized_time[sampled_idx].to(device)
             sampled_time = sampled_time[..., None]
-        
+
         return sampled_pts, sampled_color, sampled_time
-    
+
     def seg_dynamic_instances_in_lidar_frame(
-        self,
-        instance_ids: Union[int, list],
-        frame_idx: int
-        ):
+            self,
+            instance_ids: Union[int, list],
+            frame_idx: int
+    ):
         if isinstance(instance_ids, int):
             instance_num = len(self.pixel_source.instances_pose[frame_idx])
             assert instance_ids < instance_num, f"instance_id {instance_ids} is larger than the number of instances {instance_num}"
@@ -217,7 +221,7 @@ class DrivingDataset(SceneDataset):
                 instance_ids = [instance_ids]
         elif isinstance(instance_ids, list):
             instance_ids = instance_ids
-        
+
         # get the lidar points
         lidar_dict = self.lidar_source.get_lidar_rays(frame_idx)
         lidar_pts = lidar_dict["lidar_origins"] + lidar_dict["lidar_viewdirs"] * lidar_dict["lidar_ranges"]
@@ -229,25 +233,25 @@ class DrivingDataset(SceneDataset):
             # get the pose of the instance at the given frame
             o2w = self.pixel_source.instances_pose[frame_idx, instance_id]
             o_size = self.pixel_source.instances_size[instance_id]
-            
+
             # transform the lidar points to the instance's coordinate system
             # instance_pose [4, 4], pts [N, 3]
             w2o = torch.inverse(o2w)
             o_pts = transform_points(lidar_pts, w2o)
             # get the mask of the points that are inside the instance's bounding box
             mask = (
-                (o_pts[:, 0] > -o_size[0] / 2)
-                & (o_pts[:, 0] < o_size[0] / 2)
-                & (o_pts[:, 1] > -o_size[1] / 2)
-                & (o_pts[:, 1] < o_size[1] / 2)
-                & (o_pts[:, 2] > -o_size[2] / 2)
-                & (o_pts[:, 2] < o_size[2] / 2)
+                    (o_pts[:, 0] > -o_size[0] / 2)
+                    & (o_pts[:, 0] < o_size[0] / 2)
+                    & (o_pts[:, 1] > -o_size[1] / 2)
+                    & (o_pts[:, 1] < o_size[1] / 2)
+                    & (o_pts[:, 2] > -o_size[2] / 2)
+                    & (o_pts[:, 2] < o_size[2] / 2)
             )
             valid_mask = valid_mask | mask
 
         valid_points = lidar_pts[valid_mask]
         valid_colors = self.lidar_source.colors[lidar_dict["lidar_mask"]][valid_mask]
-        
+
         if DEBUG_PCD:
             export_points_to_ply(
                 valid_points,
@@ -259,15 +263,15 @@ class DrivingDataset(SceneDataset):
                 self.lidar_source.colors[lidar_dict["lidar_mask"]],
                 save_path=os.path.join(DEBUG_OUTPUT_DIR, "lidar_pts.ply")
             )
-        
+
     def get_init_objects(
-        self,
-        cur_node_type: Literal["RigidNodes", "DeformableNodes"],
-        instance_max_pts: int = 5000,
-        only_moving: bool = True,
-        traj_length_thres: float = 0.5,
-        exclude_smpl: bool = False,
-        ):
+            self,
+            cur_node_type: Literal["RigidNodes", "DeformableNodes"],
+            instance_max_pts: int = 5000,
+            only_moving: bool = True,
+            traj_length_thres: float = 0.5,
+            exclude_smpl: bool = False,
+    ):
         """
         return:
             instances_dict: Dict[int, Dict[str, Tensor]]
@@ -290,20 +294,20 @@ class DrivingDataset(SceneDataset):
             for ins_id in range(self.instance_num):
                 instance_active = self.pixel_source.per_frame_instance_mask[fi, ins_id]
                 o_type = self.pixel_source.instances_model_types[ins_id].item()
-                
+
                 if not instance_active:
                     continue
-                
+
                 if cur_node_type == "DeformableNodes":
                     if not (
-                        o_type == ModelType.DeformableNodes or 
-                        o_type == ModelType.SMPLNodes
+                            o_type == ModelType.DeformableNodes or
+                            o_type == ModelType.SMPLNodes
                     ):
                         continue
                 elif cur_node_type == "RigidNodes":
                     if not o_type == ModelType.RigidNodes:
                         continue
-                
+
                 if exclude_smpl:
                     # objects with smpl pose will be modeled by SMPLNodes
                     assert cur_node_type == "DeformableNodes", \
@@ -327,12 +331,12 @@ class DrivingDataset(SceneDataset):
                 o_pts = transform_points(lidar_pts, w2o)
                 # get the mask of the points that are inside the instance's bounding box
                 mask = (
-                    (o_pts[:, 0] > -o_size[0] / 2)
-                    & (o_pts[:, 0] < o_size[0] / 2)
-                    & (o_pts[:, 1] > -o_size[1] / 2)
-                    & (o_pts[:, 1] < o_size[1] / 2)
-                    & (o_pts[:, 2] > -o_size[2] / 2)
-                    & (o_pts[:, 2] < o_size[2] / 2)
+                        (o_pts[:, 0] > -o_size[0] / 2)
+                        & (o_pts[:, 0] < o_size[0] / 2)
+                        & (o_pts[:, 1] > -o_size[1] / 2)
+                        & (o_pts[:, 1] < o_size[1] / 2)
+                        & (o_pts[:, 2] > -o_size[2] / 2)
+                        & (o_pts[:, 2] < o_size[2] / 2)
                 )
                 valid_pts = o_pts[mask]
                 valid_colors = self.lidar_source.colors[lidar_dict["lidar_mask"]][mask]
@@ -340,7 +344,7 @@ class DrivingDataset(SceneDataset):
                 instance_dict[ins_id]["pts"].append(valid_pts)
                 instance_dict[ins_id]["colors"].append(valid_colors)
                 # instance_dict[ins_id]["flows"].append(valid_flows)
-        
+
         logger.info(f"Aggregating lidar points across {self.frame_num} frames")
         for ins_id in instance_dict:
             instance_dict[ins_id]["pts"] = torch.cat(instance_dict[ins_id]["pts"], dim=0)
@@ -355,7 +359,7 @@ class DrivingDataset(SceneDataset):
                 # instance_dict[ins_id]["flows"] = instance_dict[ins_id]["flows"][sampled_idx]
                 instance_dict[ins_id]["num_pts"] = instance_max_pts
             logger.info(f"Instance {ins_id} has {instance_dict[ins_id]['num_pts']} lidar sample points")
-        
+
         if only_moving:
             # consider only the instances with non-zero flows
             logger.info(f"Filtering out the instances with non-moving trajectories")
@@ -377,13 +381,13 @@ class DrivingDataset(SceneDataset):
                         new_instance_dict[k] = v
                         logger.info(f"Instance {k} has {v['num_pts']} lidar sample points")
             instance_dict = new_instance_dict
-            
+
         # get instance info
         for ins_id in instance_dict:
             instance_dict[ins_id]["poses"] = self.pixel_source.instances_pose[:, ins_id]
             instance_dict[ins_id]["size"] = self.pixel_source.instances_size[ins_id]
             instance_dict[ins_id]["frame_info"] = self.pixel_source.per_frame_instance_mask[:, ins_id]
-        
+
         if DEBUG_PCD:
             output_dir = os.path.join(DEBUG_OUTPUT_DIR, "aggregated_instance_lidar_pts")
             os.makedirs(output_dir, exist_ok=True)
@@ -394,7 +398,45 @@ class DrivingDataset(SceneDataset):
                     save_path=os.path.join(output_dir, f"ID={ins_id}.ply")
                 )
         return instance_dict
-    
+
+    def filtering_collected_lidar(self, collected_lidar_pts, collected_lidar_colors):
+        # Step 1: `collected_lidar_pts`와 `collected_lidar_colors`를 zip으로 묶어서 함께 처리
+        # zip은 두 리스트의 대응 요소를 하나의 튜플로 묶어줍니다.
+        paired_lidar_data = list(zip(collected_lidar_pts, collected_lidar_colors))
+
+        # Step 2: 크기와 빈 텐서를 확인하며 유효한 데이터만 필터링
+        # 1. `pts.shape[1] == 3`인지 확인하여 텐서가 올바른 (x, 3) 형식인지 확인
+        # 2. `pts.numel() > 0`인지 확인하여 빈 텐서를 제거
+        filtered_lidar_data = [
+            (pts, colors)  # 유효한 pts와 colors만 리스트로 유지
+            for pts, colors in paired_lidar_data
+            if pts.shape[1] == 3 and pts.numel() > 0
+        ]
+
+        # Step 3: 필터링된 데이터를 다시 `collected_lidar_pts`와 `collected_lidar_colors`로 분리
+        # zip(*)을 사용하여 각 요소를 분리
+        # 필터링된 데이터가 없으면 빈 리스트로 초기화
+        filtered_collected_lidar_pts, filtered_collected_lidar_colors = zip(
+            *filtered_lidar_data) if filtered_lidar_data else ([], [])
+
+        # Step 4: `collected_lidar_pts`를 GPU로 옮기고 torch.cat으로 결합
+        if len(filtered_collected_lidar_pts) > 0:  # 유효한 pts가 있을 때만 실행
+            # GPU 장치로 옮깁니다.
+            filtered_collected_lidar_pts = [t.to(torch.device("cuda:0")) for t in filtered_collected_lidar_pts]
+        else:
+            # 리스트가 비어 있다면 빈 텐서를 생성합니다.
+            filtered_collected_lidar_pts = [torch.empty((0, 3), device="cuda:0")]
+
+        # Step 5: `collected_lidar_colors`를 GPU로 옮기고 torch.cat으로 결합
+        if len(filtered_collected_lidar_colors) > 0:  # 유효한 colors가 있을 때만 실행
+            # GPU 장치로 옮깁니다.
+            filtered_collected_lidar_colors = [t.to(torch.device("cuda:0")) for t in filtered_collected_lidar_colors]
+        else:
+            # 리스트가 비어 있다면 빈 텐서를 생성합니다.
+            filtered_collected_lidar_colors = [torch.empty((0, 3), device="cuda:0")]
+
+        return filtered_collected_lidar_pts, filtered_collected_lidar_colors
+
     def get_init_smpl_objects(self, only_moving: bool = False, traj_length_thres: float = 0.5):
         instance_dict = {}
         """
@@ -409,7 +451,7 @@ class DrivingDataset(SceneDataset):
                 "frame_info": Tensor, [frame_num]
         }
         """
-        
+
         for ins_id in range(self.instance_num):
             true_id = self.pixel_source.instances_true_id[ins_id].item()
             if true_id in self.pixel_source.smpl_human_all.keys():
@@ -437,7 +479,7 @@ class DrivingDataset(SceneDataset):
                     instance_active = self.pixel_source.per_frame_instance_mask[fi, ins_id]
                     if not instance_active:
                         continue
-                    
+
                     # get the pose of the instance at the given frame
                     o2w = self.pixel_source.instances_pose[fi, ins_id]
                     o_size = self.pixel_source.instances_size[ins_id]
@@ -446,12 +488,12 @@ class DrivingDataset(SceneDataset):
                     o_pts = transform_points(lidar_pts, w2o)
                     # get the mask of the points that are inside the instance's bounding box
                     mask = (
-                        (o_pts[:, 0] > -o_size[0] / 2)
-                        & (o_pts[:, 0] < o_size[0] / 2)
-                        & (o_pts[:, 1] > -o_size[1] / 2)
-                        & (o_pts[:, 1] < o_size[1] / 2)
-                        & (o_pts[:, 2] > -o_size[2] / 2)
-                        & (o_pts[:, 2] < o_size[2] / 2)
+                            (o_pts[:, 0] > -o_size[0] / 2)
+                            & (o_pts[:, 0] < o_size[0] / 2)
+                            & (o_pts[:, 1] > -o_size[1] / 2)
+                            & (o_pts[:, 1] < o_size[1] / 2)
+                            & (o_pts[:, 2] > -o_size[2] / 2)
+                            & (o_pts[:, 2] < o_size[2] / 2)
                     )
                     valid_pts = o_pts[mask]
                     valid_colors = self.lidar_source.colors[lidar_dict["lidar_mask"]][mask]
@@ -459,31 +501,30 @@ class DrivingDataset(SceneDataset):
                     collected_lidar_pts.append(valid_pts)
                     collected_lidar_colors.append(valid_colors)
 
-                # Wrap torch.cat with try-except to catch errors
-                try:
-                    combined_pts = torch.cat(collected_lidar_pts, dim=0)
-                except RuntimeError as e:
-                    print(f"Error during torch.cat: {e}")
+                filtered_collected_lidar_pts, filtered_collected_lidar_colors = self.filtering_collected_lidar(
+                    collected_lidar_pts=collected_lidar_pts, collected_lidar_colors=collected_lidar_colors)
 
                 instance_dict[ins_id] = {
                     "node_type": "SMPLNodes",
-                    "smpl_quats": smpl_quats,           # [frame_num, 24, 4]
-                    "smpl_trans": smpl_trans,           # [frame_num, 3]
-                    "smpl_betas": first_frame_betas,    # [10]
-                    "size":       size,                 # [3]
-                    "frame_info": frame_info,           # [frame_num]
-                    "pts": torch.cat(collected_lidar_pts, dim=0),
-                    "colors": torch.cat(collected_lidar_colors, dim=0),
+                    "smpl_quats": smpl_quats,  # [frame_num, 24, 4]
+                    "smpl_trans": smpl_trans,  # [frame_num, 3]
+                    "smpl_betas": first_frame_betas,  # [10]
+                    "size": size,  # [3]
+                    "frame_info": frame_info,  # [frame_num]
+                    # "pts": torch.cat(collected_lidar_pts, dim=0),
+                    "pts": torch.cat(filtered_collected_lidar_pts, dim=0),
+                    # "colors": torch.cat(collected_lidar_colors, dim=0),
+                    "colors": torch.cat(filtered_collected_lidar_colors, dim=0),
                 }
-        
+
         return instance_dict
 
     def filter_pts_in_boxes(
-        self,
-        seed_pts: Tensor,
-        valid_instances_dict: Dict[int, Dict[str, Tensor]],
-        seed_colors: Tensor = None,
-        seed_time: Tensor = None,
+            self,
+            seed_pts: Tensor,
+            valid_instances_dict: Dict[int, Dict[str, Tensor]],
+            seed_colors: Tensor = None,
+            seed_time: Tensor = None,
     ):
         """
         This function is used to filter out the points that are inside the bounding boxes of the instances
@@ -496,7 +537,7 @@ class DrivingDataset(SceneDataset):
                 save_path=os.path.join(DEBUG_OUTPUT_DIR, "original_seed_pts.ply")
             )
         valid_instance_keys = valid_instances_dict.keys()
-        
+
         inside_mask = torch.zeros_like(seed_pts[:, 0]).bool()
         for fi in range(self.frame_num):
             for ins_id in valid_instance_keys:
@@ -511,29 +552,29 @@ class DrivingDataset(SceneDataset):
                 o_pts = transform_points(seed_pts, w2o)
                 # get the mask of the points that are inside the instance's bounding box
                 mask = (
-                    (o_pts[:, 0] > -o_size[0] / 2)
-                    & (o_pts[:, 0] < o_size[0] / 2)
-                    & (o_pts[:, 1] > -o_size[1] / 2)
-                    & (o_pts[:, 1] < o_size[1] / 2)
-                    & (o_pts[:, 2] > -o_size[2] / 2)
-                    & (o_pts[:, 2] < o_size[2] / 2)
+                        (o_pts[:, 0] > -o_size[0] / 2)
+                        & (o_pts[:, 0] < o_size[0] / 2)
+                        & (o_pts[:, 1] > -o_size[1] / 2)
+                        & (o_pts[:, 1] < o_size[1] / 2)
+                        & (o_pts[:, 2] > -o_size[2] / 2)
+                        & (o_pts[:, 2] < o_size[2] / 2)
                 )
                 inside_mask = inside_mask | mask
-        
+
         # filter out the points that are inside the bounding boxes
         seed_pts = seed_pts[~inside_mask]
         if seed_colors is not None:
             seed_colors = seed_colors[~inside_mask]
         if seed_time is not None:
             seed_time = seed_time[~inside_mask]
-        
+
         if DEBUG_PCD:
             export_points_to_ply(
                 seed_pts,
                 seed_colors,
                 save_path=os.path.join(DEBUG_OUTPUT_DIR, "filtered_seed_pts.ply")
             )
-            
+
             for fi in range(self.frame_num):
                 if fi % 10 != 0:
                     continue
@@ -551,7 +592,7 @@ class DrivingDataset(SceneDataset):
                         valid_instances_dict[ins_id]["colors"],
                         save_path=os.path.join(frame_save_dir, f"ID={ins_id}.ply")
                     )
-        
+
         return {
             "pts": seed_pts,
             "colors": seed_colors,
@@ -570,19 +611,19 @@ class DrivingDataset(SceneDataset):
                 )
                 intrinsic_4x4[3, 3] = 1.0
                 lidar2img = (
-                    intrinsic_4x4 @ cam.cam_to_worlds[frame_idx].inverse()
+                        intrinsic_4x4 @ cam.cam_to_worlds[frame_idx].inverse()
                 )
                 projected_points = (
-                    lidar2img[:3, :3] @ pts_xyz.T + lidar2img[:3, 3:4]
+                        lidar2img[:3, :3] @ pts_xyz.T + lidar2img[:3, 3:4]
                 ).T
                 depth = projected_points[:, 2]
                 cam_points = projected_points[:, :2] / (depth.unsqueeze(-1) + 1e-6)
                 current_valid_mask = (
-                    (cam_points[:, 0] >= 0)
-                    & (cam_points[:, 0] < cam.WIDTH)
-                    & (cam_points[:, 1] >= 0)
-                    & (cam_points[:, 1] < cam.HEIGHT)
-                    & (depth > 0)
+                        (cam_points[:, 0] >= 0)
+                        & (cam_points[:, 0] < cam.WIDTH)
+                        & (cam_points[:, 1] >= 0)
+                        & (cam_points[:, 1] < cam.HEIGHT)
+                        & (depth > 0)
                 )
                 valid_mask = valid_mask | current_valid_mask
         return valid_mask
@@ -625,7 +666,7 @@ class DrivingDataset(SceneDataset):
         # train_indices are img indices, so the length is num_cams * num_train_timesteps
         # but train_timesteps are timesteps, so the length is num_train_timesteps (len(unique_train_timestamps))
         return train_timesteps, test_timesteps, train_indices, test_indices
-    
+
     def project_lidar_pts_on_images(self, delete_out_of_view_points=True):
         """
         Project the lidar points on the images and attribute the color of the nearest pixel to the lidar point.
@@ -637,31 +678,31 @@ class DrivingDataset(SceneDataset):
         for cam in self.pixel_source.camera_data.values():
             lidar_depth_maps = []
             for frame_idx in tqdm(
-                range(len(cam)), 
-                desc="Projecting lidar pts on images for camera {}".format(cam.cam_name),
-                dynamic_ncols=True
+                    range(len(cam)),
+                    desc="Projecting lidar pts on images for camera {}".format(cam.cam_name),
+                    dynamic_ncols=True
             ):
                 normed_time = self.pixel_source.normalized_time[frame_idx]
-                
+
                 # get lidar depth on image plane
                 closest_lidar_idx = self.lidar_source.find_closest_timestep(normed_time)
                 lidar_infos = self.lidar_source.get_lidar_rays(closest_lidar_idx)
                 lidar_points = (
-                    lidar_infos["lidar_origins"]
-                    + lidar_infos["lidar_viewdirs"] * lidar_infos["lidar_ranges"]
+                        lidar_infos["lidar_origins"]
+                        + lidar_infos["lidar_viewdirs"] * lidar_infos["lidar_ranges"]
                 )
-                
+
                 # project lidar points to the image plane
                 if cam.undistort:
                     new_camera_matrix, _ = cv2.getOptimalNewCameraMatrix(
-                                cam.intrinsics[frame_idx].cpu().numpy(),
-                                cam.distortions[frame_idx].cpu().numpy(),
-                                (cam.WIDTH, cam.HEIGHT),
-                                alpha=1,
-                            )
+                        cam.intrinsics[frame_idx].cpu().numpy(),
+                        cam.distortions[frame_idx].cpu().numpy(),
+                        (cam.WIDTH, cam.HEIGHT),
+                        alpha=1,
+                    )
                     intrinsic_4x4 = torch.nn.functional.pad(
-                            torch.from_numpy(new_camera_matrix), (0, 1, 0, 1)
-                        ).to(self.device)
+                        torch.from_numpy(new_camera_matrix), (0, 1, 0, 1)
+                    ).to(self.device)
                 else:
                     intrinsic_4x4 = torch.nn.functional.pad(
                         cam.intrinsics[frame_idx], (0, 1, 0, 1)
@@ -669,18 +710,18 @@ class DrivingDataset(SceneDataset):
                 intrinsic_4x4[3, 3] = 1.0
                 lidar2img = intrinsic_4x4 @ cam.cam_to_worlds[frame_idx].inverse()
                 lidar_points = (
-                    lidar2img[:3, :3] @ lidar_points.T + lidar2img[:3, 3:4]
-                ).T # (num_pts, 3)
-                
+                        lidar2img[:3, :3] @ lidar_points.T + lidar2img[:3, 3:4]
+                ).T  # (num_pts, 3)
+
                 depth = lidar_points[:, 2]
-                cam_points = lidar_points[:, :2] / (depth.unsqueeze(-1) + 1e-6) # (num_pts, 2)
+                cam_points = lidar_points[:, :2] / (depth.unsqueeze(-1) + 1e-6)  # (num_pts, 2)
                 valid_mask = (
-                    (cam_points[:, 0] >= 0)
-                    & (cam_points[:, 0] < cam.WIDTH)
-                    & (cam_points[:, 1] >= 0)
-                    & (cam_points[:, 1] < cam.HEIGHT)
-                    & (depth > 0)
-                ) # (num_pts, )
+                        (cam_points[:, 0] >= 0)
+                        & (cam_points[:, 0] < cam.WIDTH)
+                        & (cam_points[:, 1] >= 0)
+                        & (cam_points[:, 1] < cam.HEIGHT)
+                        & (depth > 0)
+                )  # (num_pts, )
                 depth = depth[valid_mask]
                 _cam_points = cam_points[valid_mask]
                 depth_map = torch.zeros(
@@ -690,14 +731,14 @@ class DrivingDataset(SceneDataset):
                     _cam_points[:, 1].long(), _cam_points[:, 0].long()
                 ] = depth.squeeze(-1)
                 lidar_depth_maps.append(depth_map)
-                
+
                 # used to filter out the lidar points that are visible from the camera
                 visible_indices = torch.arange(
                     self.lidar_source.num_points, device=self.device
                 )[lidar_infos["lidar_mask"]][valid_mask]
-                
+
                 self.lidar_source.visible_masks[visible_indices] = True
-                
+
                 # attribute the color of the nearest pixel to the lidar point
                 points_color = cam.images[frame_idx][
                     _cam_points[:, 1].long(), _cam_points[:, 0].long()
@@ -707,14 +748,14 @@ class DrivingDataset(SceneDataset):
             cam.load_depth(
                 torch.stack(lidar_depth_maps, dim=0).to(self.device).float()
             )
-            
+
         if delete_out_of_view_points:
             self.lidar_source.delete_invisible_pts()
-            
+
     def get_novel_render_traj(
-        self,
-        traj_types: List[str] = ["front_center_interp"],
-        target_frames: int = 100
+            self,
+            traj_types: List[str] = ["front_center_interp"],
+            target_frames: int = 100
     ) -> Dict[str, torch.Tensor]:
         """
         Get multiple novel trajectories of the scene for rendering.
@@ -735,7 +776,7 @@ class DrivingDataset(SceneDataset):
         per_cam_poses = {}
         for cam_id in self.pixel_source.camera_list:
             per_cam_poses[cam_id] = self.pixel_source.camera_data[cam_id].cam_to_worlds
-        
+
         novel_trajs = {}
         for traj_type in traj_types:
             novel_trajs[traj_type] = get_interp_novel_trajectories(
@@ -745,20 +786,20 @@ class DrivingDataset(SceneDataset):
                 traj_type,
                 target_frames
             )
-        
+
         return novel_trajs
 
     def prepare_novel_view_render_data(self, traj: torch.Tensor) -> list:
-            """
-            Prepare all necessary elements for novel view rendering.
+        """
+        Prepare all necessary elements for novel view rendering.
 
-            Args:
-                traj (torch.Tensor): Novel view trajectory, shape (N, 4, 4)
+        Args:
+            traj (torch.Tensor): Novel view trajectory, shape (N, 4, 4)
 
-            Returns:
-                list: List of dicts, each containing elements required for rendering a single frame:
-                    - cam_infos: Camera information (extrinsics, intrinsics, image dimensions)
-                    - image_infos: Image-related information (indices, normalized time, viewdirs, etc.)
-            """
-            # Call the PixelSource's method
-            return self.pixel_source.prepare_novel_view_render_data(self.type, traj)
+        Returns:
+            list: List of dicts, each containing elements required for rendering a single frame:
+                - cam_infos: Camera information (extrinsics, intrinsics, image dimensions)
+                - image_infos: Image-related information (indices, normalized time, viewdirs, etc.)
+        """
+        # Call the PixelSource's method
+        return self.pixel_source.prepare_novel_view_render_data(self.type, traj)

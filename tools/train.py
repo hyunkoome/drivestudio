@@ -1,14 +1,18 @@
-from omegaconf import OmegaConf
-import numpy as np
 import os
+from dotenv import load_dotenv
+load_dotenv('/home/hyunkoo/DATA/HDD8TB/Add_Objects_DrivingScense/drivestudio/tools/.env')
+print(os.environ['HF_HOME'])
+
 import time
 import wandb
 import random
 import imageio
 import logging
 import argparse
-
 import torch
+import numpy as np
+
+from omegaconf import OmegaConf
 from tools.eval import do_evaluation
 from utils.misc import import_str
 from utils.backup import backup_project
