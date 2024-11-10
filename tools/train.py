@@ -1,7 +1,4 @@
 import os
-from dotenv import load_dotenv
-load_dotenv('/home/hyunkoo/DATA/ssd8tb/Journal/drivestudio/.env')
-print(os.environ['HF_HOME'])
 import time
 import wandb
 import random
