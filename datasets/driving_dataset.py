@@ -347,6 +347,10 @@ class DrivingDataset(SceneDataset):
 
         logger.info(f"Aggregating lidar points across {self.frame_num} frames")
         for ins_id in instance_dict:
+            instance_dict[ins_id]["pts"], instance_dict[ins_id]["colors"] = self.filtering_collected_lidar(
+                collected_lidar_pts=instance_dict[ins_id]["pts"],
+                collected_lidar_colors=instance_dict[ins_id]["colors"])
+
             instance_dict[ins_id]["pts"] = torch.cat(instance_dict[ins_id]["pts"], dim=0)
             instance_dict[ins_id]["colors"] = torch.cat(instance_dict[ins_id]["colors"], dim=0)
             # instance_dict[ins_id]["flows"] = torch.cat(instance_dict[ins_id]["flows"], dim=0)
