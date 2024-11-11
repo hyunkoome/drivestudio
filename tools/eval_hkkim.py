@@ -1,4 +1,8 @@
 import os
+from dotenv import load_dotenv
+load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env'))
+print(os.environ['HF_HOME'])
+
 import time
 import json
 import wandb
