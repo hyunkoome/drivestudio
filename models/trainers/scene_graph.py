@@ -266,7 +266,7 @@ class MultiTrainer(BasicTrainer):
                     outputs[class_name+"_opacity"] = sep_opacity
                     outputs[class_name+"_depth"] = sep_depth
 
-        if not self.training or self.render_dynamic_mask:
+        if not self.training or self.render_dynamic_mask: # 여기에 추가 하는 게 맞는듯..
             with torch.no_grad():
                 gaussian_mask = self.pts_labels != self.gaussian_classes["Background"]
                 sep_rgb, sep_depth, sep_opacity = render_fn(gaussian_mask)
