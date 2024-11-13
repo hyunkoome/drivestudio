@@ -1,6 +1,6 @@
 #!/bin/bash
 
-CUDA_VISIBLE_DEVICES=0 python tools/eval.py --resume_from --resume_from output/drivestudio/a100_omnire_waymo_3cm_scene_23/checkpoint_final.pth
+export $(cat .env | xargs) && CUDA_VISIBLE_DEVICES=1 python tools/eval_hkkim.py --resume_from output/drivestudio/a100_omnire_waymo_3cm_scene_23/checkpoint_final.pth
 
 #export $(cat .env | xargs) && CUDA_VISIBLE_DEVICES=0 python tools/eval.py --resume_from output/drivestudio/a100_omnire_waymo_3cm_scene_23/checkpoint_final.pth --enable_viewer
 

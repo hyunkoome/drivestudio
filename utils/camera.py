@@ -72,6 +72,7 @@ def get_interp_novel_trajectories(
         "s_curve": s_curve,
         "three_key_poses": three_key_poses_trajectory,
         "up_poses_trajectory": up_poses_trajectory,
+        "all_camera_linear_trajectory": all_camera_linear_trajectory,
     }
 
     if traj_type not in trajectory_generators:
@@ -203,3 +204,63 @@ def up_poses_trajectory(
     adjusted_poses = torch.stack([torch.mm(transform_matrix, current_pose[i]) for i in range(len(current_pose))])
 
     return interpolate_poses(adjusted_poses, target_frames)
+
+
+def all_camera_linear_trajectory(
+        dataset_type: str,
+        per_cam_poses: Dict[int, torch.Tensor],
+        original_frames: int,
+        target_frames: int
+) -> torch.Tensor:
+    """
+    Camera 0, 1, 2의 포즈를 모두 활용하여 이동 및 회전 행렬을 적용한 궤적 생성.
+
+    Args:
+        dataset_type (str): 데이터셋 유형 (예: "waymo", "pandaset" 등).
+        per_cam_poses (Dict[int, torch.Tensor]): 모든 카메라의 포즈 딕셔너리.
+        original_frames (int): 원본 프레임 수.
+        target_frames (int): 생성할 궤적의 총 프레임 수.
+
+    Returns:
+        torch.Tensor: 생성된 궤적, 크기 (3, target_frames, 4, 4).
+    """
+    seleted_camera_id = 0
+    assert seleted_camera_id in per_cam_poses.keys(), f"Front center camera (ID {seleted_camera_id}) is required"
+
+    # 이동 거리 (z축 방향으로 1m씩 전진)
+    forward_distance_per_frame = 0.2  # 매 프레임 이동 거리 (1미터)
+
+    translation_matrix = torch.tensor([
+        [1, 0, 0, forward_distance_per_frame],  # 앞(+)
+        [0, 1, 0, 0],  # 오(-)
+        [0, 0, 1, 0], # 위(+)
+        [0, 0, 0, 1]
+    ], dtype=torch.float32).cuda()
+
+    angle = -np.pi / 6
+    rotation_matrix = torch.tensor([
+        [1, 0, 0, 0],
+        [0, 1, 0, 0],
+        [0, 0, 1, 0],
+        [0, 0, 0, 1]
+    ], dtype=torch.float32).cuda()
+    transform_matrix = torch.mm(translation_matrix, rotation_matrix)
+
+    # 원하는 카메라의 첫 번째 포즈 가져오기
+    seletec_camera_pose = per_cam_poses[seleted_camera_id]  # .clone()
+    device = seletec_camera_pose.device
+
+    # 이동 및 회전을 결합한 변환 행렬
+    trajectory = []
+    current_pose = seletec_camera_pose[0]
+    trajectory.append(current_pose)
+
+    for i in range(1, len(seletec_camera_pose)):
+        current_pose = torch.mm(transform_matrix, current_pose)
+        trajectory.append(current_pose)
+
+    # Stack the key poses and interpolate
+    key_poses = torch.stack(trajectory).to(device)
+
+    # 카메라별 궤적을 합쳐 최종 출력 (크기: target_frames x 4 x 4)
+    return interpolate_poses(key_poses, target_frames)
