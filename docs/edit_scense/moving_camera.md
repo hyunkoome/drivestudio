@@ -11,3 +11,5 @@ It should be contained, `trajectory_generators` of `get_interp_novel_trajectorie
 And, at the `config.yaml` of "trained output folder", you should add your new function at the key of `render.render_novel.traj_types`
 ![config.yaml](./figures/moving_camera_config.yaml.png)
 
+### Results (Moving Camera)
+![moving camrea](./figures/all_camera_linear_trajectory.gif)
